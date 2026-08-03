@@ -14,3 +14,7 @@ down:
 
 i:
 	pnpm install
+
+swagger:
+	 open http://localhost:3000/docs
+
