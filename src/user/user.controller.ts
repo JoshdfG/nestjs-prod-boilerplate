@@ -1,10 +1,10 @@
 import {
-  Body,
   Controller,
   Get,
+  Post,
+  Body,
   Param,
   ParseIntPipe,
-  Post,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user-dto';
@@ -21,5 +21,10 @@ export class UserController {
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.userService.findOne(id);
+  }
+
+  @Get(':id/todos')
+  findTodos(@Param('id', ParseIntPipe) id: number) {
+    return this.userService.findTodos(id);
   }
 }

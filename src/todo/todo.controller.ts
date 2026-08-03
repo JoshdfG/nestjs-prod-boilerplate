@@ -1,34 +1,65 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  ParseIntPipe,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+} from '@nestjs/swagger';
 import { TodoService } from './todo.service';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
+import { TodoResponseDto } from './dto/todo-response.dto';
 
+@ApiTags('todos') // groups these routes under a "todos" section in the docs
 @Controller('todo')
 export class TodoController {
   constructor(private readonly todoService: TodoService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Create a new todo' })
+  @ApiResponse({ status: 201, type: TodoResponseDto })
   create(@Body() createTodoDto: CreateTodoDto) {
     return this.todoService.create(createTodoDto);
   }
 
   @Get()
-  findAll() {
-    return this.todoService.findAll();
+  @ApiOperation({ summary: 'List todos, optionally filtered by user' })
+  @ApiQuery({ name: 'userId', required: false, type: Number })
+  findAll(@Query('userId') userId?: string) {
+    return this.todoService.findAll(userId ? +userId : undefined);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.todoService.findOne(+id);
+  @ApiOperation({ summary: 'Get a single todo by ID' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 404, description: 'Todo not found' })
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.todoService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTodoDto: UpdateTodoDto) {
-    return this.todoService.update(+id, updateTodoDto);
+  @ApiOperation({ summary: 'Update a todo' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateTodoDto: UpdateTodoDto,
+  ) {
+    return this.todoService.update(id, updateTodoDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.todoService.remove(+id);
+  @ApiOperation({ summary: 'Delete a todo' })
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.todoService.remove(id);
   }
 }

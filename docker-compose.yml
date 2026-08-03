@@ -16,18 +16,43 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    container_name: nest-redis
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: nest-api
+    command: sh -c "npx prisma migrate deploy && npm run start:dev"
     ports:
-      - '3000:3080'
+      - '3000:3000'
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      - REDIS_URL=redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /usr/src/app/src
+        - action: sync
+          path: ./prisma
+          target: /usr/src/app/prisma
+        - action: rebuild
+          path: package.json
 
 volumes:
   pgdata:
