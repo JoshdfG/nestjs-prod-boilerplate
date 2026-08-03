@@ -25,12 +25,17 @@ export class TodoService {
     if (!userId) {
       return this.prisma.userTodo.findMany();
     }
+
     const cacheKey = `user:${userId}:todos`;
     const cached = await this.cache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      this.logger.debug({ userId, cacheKey }, 'Cache hit');
+      return cached;
+    }
 
+    this.logger.debug({ userId, cacheKey }, 'Cache miss');
     const todos = await this.prisma.userTodo.findMany({ where: { userId } });
-    await this.cache.set(cacheKey, todos, 30_000);
+    await this.cache.set(cacheKey, todos, 5 * 60_000);
     return todos;
   }
 
@@ -47,6 +52,7 @@ export class TodoService {
       data: updateTodoDto,
     });
     await this.cache.del(`user:${existing.userId}:todos`);
+    this.logger.info({ todoId: id, userId: existing.userId }, 'Todo updated');
     return todo;
   }
 

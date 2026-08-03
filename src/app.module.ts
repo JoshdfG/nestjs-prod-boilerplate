@@ -6,6 +6,9 @@ import { RedisCacheModule } from './cache/redis-cache.module';
 import { UserModule } from './user/user.module';
 import { TodoModule } from './todo/todo.module';
 import { LoggerModule } from 'nestjs-pino';
+import { HealthModule } from './health/health.module';
+import { APP_FILTER } from '@nestjs/core';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 @Module({
   imports: [
@@ -23,8 +26,15 @@ import { LoggerModule } from 'nestjs-pino';
     RedisCacheModule,
     UserModule,
     TodoModule,
+    HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
+  ],
 })
 export class AppModule {}
