@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaHealthIndicator } from './prisma.health';
 import { RedisHealthIndicator } from './redis.health';
 
@@ -15,6 +16,7 @@ export class HealthController {
 
   @Get()
   @HealthCheck()
+  @SkipThrottle()
   @ApiOperation({ summary: 'Check API, database, and cache health' })
   check() {
     return this.health.check([

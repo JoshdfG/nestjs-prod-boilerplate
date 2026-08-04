@@ -30,7 +30,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Internal server error';
 
-    // Log full detail server-side, regardless of what we send back to the client
     this.logger.error(
       {
         statusCode: status,
