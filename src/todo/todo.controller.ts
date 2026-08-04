@@ -20,14 +20,16 @@ import { TodoService } from './todo.service';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { TodoResponseDto } from './dto/todo-response.dto';
+import { Throttle } from '@nestjs/throttler';
 
-@ApiTags('todos') // groups these routes under a "todos" section in the docs
+@ApiTags('todos')
 @Controller('todo')
 export class TodoController {
   constructor(private readonly todoService: TodoService) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new todo' })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiResponse({ status: 201, type: TodoResponseDto })
   create(@Body() createTodoDto: CreateTodoDto) {
     return this.todoService.create(createTodoDto);
