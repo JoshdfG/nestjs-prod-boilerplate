@@ -23,15 +23,82 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository — extended here into a production-ready **Todo List API** with Postgres, Redis caching, structured logging, health checks, rate limiting, and full Docker Compose orchestration.
+
+---
+
+## Stack
+
+- **Framework:** NestJS 11
+- **Database:** PostgreSQL 15, via Prisma 7 (driver adapter model, `@prisma/adapter-pg`)
+- **Cache:** Redis 7, via `cache-manager` + `Keyv` (`@keyv/redis`)
+- **Logging:** Structured JSON logs via `nestjs-pino`
+- **Docs:** Swagger/OpenAPI at `/docs`
+- **Health checks:** `@nestjs/terminus` at `/health` (Postgres + Redis indicators)
+- **Rate limiting:** `@nestjs/throttler` (global default + per-route overrides)
+- **Security:** Helmet, CORS (origin allowlist), gzip compression
+- **Containerization:** Docker Compose with health-gated startup and live-reload via `watch`
+
+---
 
 ## Project setup
 
-```bash
-$ pnpm install
+### 1. Environment variables
+
+Copy `.env.example` (or create `.env` in the project root) with:
+
+```
+POSTGRES_USER=myuser
+POSTGRES_PASSWORD=mypassword
+POSTGRES_DB=mydb
+DATABASE_URL="postgresql://myuser:mypassword@localhost:5472/mydb?schema=public"
+REDIS_URL="redis://localhost:6379"
+ALLOWED_ORIGINS=http://localhost:5173
 ```
 
-## Compile and run the project
+> `DATABASE_URL`/`REDIS_URL` above are the **host-facing** values, used when running the app locally (`pnpm start:dev`) or for local Prisma CLI commands. Inside Docker Compose, the `api` service overrides these with container-network addresses (`postgres:5432`, `redis:6379`) automatically — you don't need to change anything for the Dockerized flow.
+
+Environment variables are validated at boot via a Joi schema (`src/config/env.validation.ts`). Missing or malformed vars will fail the app fast and loud at startup rather than causing a confusing runtime error later.
+
+### 2. Install dependencies
+
+```bash
+make i
+# or: pnpm install
+```
+
+### 3. Run with Docker (recommended)
+
+```bash
+make build
+# or: docker compose up --build
+```
+
+This builds the API image, starts Postgres + Redis with health checks, waits for both to be healthy before starting the API, and runs Prisma migrations automatically on boot.
+
+### 4. Run with live-reload (recommended for active development)
+
+```bash
+docker compose up --build --watch
+```
+
+File changes under `src/` and `prisma/` sync into the running container automatically; changes to `package.json` trigger a full rebuild. No need to manually `down`/`up --build` on every change.
+
+---
+
+## Running locally (without Docker for the API)
+
+If you'd rather run the Nest app natively on your host while keeping Postgres/Redis in Docker:
+
+```bash
+make up                 # starts Postgres only
+docker compose up -d redis
+pnpm run start:dev
+```
+
+Make sure `.env` points at the **host-exposed** ports (`localhost:5472` for Postgres, `localhost:6379` for Redis) in this mode.
+
+## Compile and run the project (native, no Docker)
 
 ```bash
 # development
@@ -56,6 +123,63 @@ $ pnpm run test:e2e
 # test coverage
 $ pnpm run test:cov
 ```
+
+---
+
+## Testing endpoints
+
+A `Makefile` wraps every endpoint in a ready-to-run `curl` command, so you don't need to hand-type requests while testing.
+
+```bash
+make help
+```
+
+```
+Usage: make <target> [VAR=value ...]
+
+  help                   Show this help
+  up                     Start Postgres only (detached)
+  build                  Build and start all containers (postgres, redis, api)
+  down                   Stop and remove all containers
+  i                      Install dependencies (pnpm)
+  swagger                Open Swagger docs in the browser (/docs)
+  health                 GET /health — check API, database, and cache status
+  user-create            POST /user — USERNAME, NAME, TODO (optional first todo title)
+  user-get               GET /user/:id — ID (default 1)
+  user-todos             GET /user/:id/todos — ID (default 1)
+  todo-create            POST /todo — TITLE, DESC, USER_ID (default 1)
+  todo-list              GET /todo — list all todos
+  todo-list-by-user      GET /todo?userId= — USER_ID (default 1)
+  todo-get               GET /todo/:id — ID (default 1)
+  todo-update            PATCH /todo/:id — ID, TITLE
+  todo-complete          PATCH /todo/:id — ID, marks isComplete true
+  todo-delete            DELETE /todo/:id — ID (default 1)
+  throttle-test          Fire 8 rapid POSTs to /todo — expect 201 x5 then 429 x3
+
+Examples:
+  make user-create USERNAME=jane NAME="Jane Doe"
+  make todo-create TITLE="Ship it" USER_ID=2
+  make todo-update ID=1 TITLE="New title"
+```
+
+Full interactive API docs (with a "Try it out" button) are also available via Swagger:
+
+```bash
+make swagger
+```
+
+---
+
+## Architecture notes
+
+- **Layering:** Controller (HTTP only) → Service (business logic, caching, logging) → Prisma (persistence). Controllers never call Prisma directly.
+- **Caching:** Cache-aside pattern via Redis/Keyv. Reads check cache first, populate on miss; writes invalidate the relevant cache key immediately.
+- **Observability:** Every request is logged as structured JSON (method, path, status, response time) via `nestjs-pino`. Services additionally log domain events (`Todo created`, `Cache hit`/`Cache miss`, etc.) tagged by originating class.
+- **Error handling:** A global exception filter (`AllExceptionsFilter`) normalizes every error response to a consistent shape and logs full details server-side, without leaking stack traces to clients.
+- **Config:** All environment variables are validated once at boot (`ConfigModule` + Joi) — no service reaches for `process.env` without a guarantee it's already been validated.
+- **Health:** `/health` checks live connectivity to both Postgres and Redis, exempt from rate limiting, suitable for use as a Docker/Kubernetes readiness probe.
+
+---
 
 ## Deployment
 
